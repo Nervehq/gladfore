@@ -91,6 +91,7 @@ export interface Database {
           order_details: Json;
           approved_by: string | null;
           approved_at: string | null;
+          approval_comment: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -106,6 +107,7 @@ export interface Database {
           order_details?: Json;
           approved_by?: string | null;
           approved_at?: string | null;
+          approval_comment?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -121,6 +123,7 @@ export interface Database {
           order_details?: Json;
           approved_by?: string | null;
           approved_at?: string | null;
+          approval_comment?: string | null;
           created_at?: string;
           updated_at?: string;
         };

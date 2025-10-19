@@ -16,6 +16,59 @@ export async function recordPayment(payload: Database['public']['Tables']['payme
   return res as { data: Database['public']['Tables']['payments']['Row'][] | null; error: any };
 }
 
+// Fetch repayment schedules for an order
+export async function getRepaymentSchedulesByOrderId(orderId: string) {
+  const res = await sb
+    .from('repayment_schedules')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('installment_number', { ascending: true });
+  return res as { data: Database['public']['Tables']['repayment_schedules']['Row'][] | null; error: any };
+}
+
+// Record a payment that may optionally be linked to a repayment schedule item.
+// If repayment_schedule_id is provided, update that schedule (amount_paid, status).
+// Then update the order remaining_balance and status accordingly.
+export async function recordPaymentLinked(
+  payload: Database['public']['Tables']['payments']['Insert'] & { repayment_schedule_id?: string | null }
+) {
+  // insert payment
+  const insertRes = await sb.from('payments').insert([payload]).select();
+  const paymentData = (insertRes as any).data?.[0] ?? null;
+  const paymentError = (insertRes as any).error ?? null;
+
+  if (paymentError) return { payment: null, schedule: null, order: null, error: paymentError };
+
+  let updatedSchedule: Database['public']['Tables']['repayment_schedules']['Row'] | null = null;
+
+  if (payload.repayment_schedule_id) {
+    // fetch existing schedule
+    const schedRes = await sb.from('repayment_schedules').select('*').eq('id', payload.repayment_schedule_id).maybeSingle();
+    const sched = (schedRes as any).data ?? null;
+    if (sched) {
+      const newAmountPaid = Number(sched.amount_paid || 0) + Number(payload.amount);
+      const newStatus = newAmountPaid >= Number(sched.amount_due) ? 'paid' : (newAmountPaid > 0 ? 'partial' : sched.status);
+      const upd = await sb.from('repayment_schedules').update({ amount_paid: newAmountPaid, status: newStatus }).eq('id', payload.repayment_schedule_id).select().maybeSingle();
+      updatedSchedule = (upd as any).data ?? null;
+    }
+  }
+
+  // Update order remaining balance and possibly status
+  let updatedOrder: Database['public']['Tables']['orders']['Row'] | null = null;
+  if (payload.order_id) {
+    const ordRes = await sb.from('orders').select('*').eq('id', payload.order_id).maybeSingle();
+    const ord = (ordRes as any).data ?? null;
+    if (ord) {
+      const newRemaining = Number(ord.remaining_balance || 0) - Number(payload.amount);
+      const newStatus = newRemaining <= 0 ? 'approved' === ord.status ? 'approved' : ord.status : ord.status;
+      const updOrd = await sb.from('orders').update({ remaining_balance: newRemaining, status: newStatus }).eq('id', payload.order_id).select().maybeSingle();
+      updatedOrder = (updOrd as any).data ?? null;
+    }
+  }
+
+  return { payment: paymentData, schedule: updatedSchedule, order: updatedOrder, error: null };
+}
+
 export async function createRepaymentSchedules(payloads: Database['public']['Tables']['repayment_schedules']['Insert'][] ) {
   const res = await sb.from('repayment_schedules').insert(payloads).select();
   return res as { data: Database['public']['Tables']['repayment_schedules']['Row'][] | null; error: any };
