@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Database } from '@/lib/supabase/types';
 import { getOrderById, getPaymentsByOrderId, recordPayment as dbRecordPayment, updateOrder, getRepaymentSchedulesByOrderId, recordPaymentLinked } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/business-logic/order-calculations';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +26,14 @@ export default function OrderDetailsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [amount, setAmount] = useState<number>(0);
     const [schedules, setSchedules] = useState<Database['public']['Tables']['repayment_schedules']['Row'][]>([]);
+  // modal state
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<'approved' | 'rejected' | null>(null);
+  const [approvalComment, setApprovalComment] = useState<string>('');
+
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentSchedule, setPaymentSchedule] = useState<Database['public']['Tables']['repayment_schedules']['Row'] | null>(null);
+  const [paymentAmountInput, setPaymentAmountInput] = useState<string>('');
 
   useEffect(() => {
     if (!id) return;
@@ -72,12 +81,16 @@ export default function OrderDetailsPage() {
     router.refresh();
   };
 
-  const paySchedule = async (sched: Database['public']['Tables']['repayment_schedules']['Row']) => {
-    if (!profile || !order) return toast({ title: 'Cannot pay', description: 'Missing context' });
+  const openPayModal = (sched: Database['public']['Tables']['repayment_schedules']['Row']) => {
+    setPaymentSchedule(sched);
     const remainingForSched = Number(sched.amount_due) - Number(sched.amount_paid || 0);
-    const input = window.prompt(`Enter amount to pay for installment ${sched.installment_number}`, String(remainingForSched));
-    if (!input) return;
-    const amt = Number(input);
+    setPaymentAmountInput(String(remainingForSched));
+    setPaymentModalOpen(true);
+  };
+
+  const confirmPay = async () => {
+    if (!paymentSchedule || !profile || !order) return toast({ title: 'Cannot pay', description: 'Missing context' });
+    const amt = Number(paymentAmountInput);
     if (!amt || amt <= 0) return toast({ title: 'Invalid amount', description: 'Enter a positive number' });
 
     const payload: Database['public']['Tables']['payments']['Insert'] & { repayment_schedule_id?: string } = {
@@ -86,7 +99,7 @@ export default function OrderDetailsPage() {
       amount: amt,
       payment_type: 'installment',
       recorded_by: profile.id,
-      repayment_schedule_id: sched.id,
+      repayment_schedule_id: paymentSchedule.id,
     };
 
     const { payment, schedule: updatedSched, order: updatedOrder, error } = await recordPaymentLinked(payload);
@@ -103,24 +116,29 @@ export default function OrderDetailsPage() {
     if (updatedOrder) setOrder(updatedOrder as Order);
     const { data: paymentsData3 } = await getPaymentsByOrderId(order.id);
     setPayments((paymentsData3 ?? []) as Payment[]);
+    setPaymentModalOpen(false);
   };
 
-  const handleApproval = async (status: 'approved' | 'rejected') => {
-    if (!profile || !order) return toast({ title: 'Cannot update', description: 'Missing context' });
+  const openApprovalModal = (status: 'approved' | 'rejected') => {
+    setApprovalStatus(status);
+    setApprovalComment('');
+    setApprovalModalOpen(true);
+  };
 
-    const comment = window.prompt(`Add an optional comment for ${status}`) || null;
-
+  const confirmApproval = async () => {
+    if (!profile || !order || !approvalStatus) return toast({ title: 'Cannot update', description: 'Missing context' });
     const { data: updatedOrder, error } = await updateOrder(order.id, {
-      status,
+      status: approvalStatus,
       approved_by: profile.id,
       approved_at: new Date().toISOString(),
-      approval_comment: comment,
+      approval_comment: approvalComment || null,
     } as any);
 
     if (error) return toast({ title: 'Error', description: 'Could not update order' });
 
     if (updatedOrder) setOrder(updatedOrder as Order);
-    toast({ title: `Order ${status}`, description: `Order ${order.id} ${status}` });
+    toast({ title: `Order ${approvalStatus}`, description: `Order ${order.id} ${approvalStatus}` });
+    setApprovalModalOpen(false);
   };
 
   if (!order) return <div className="p-6">Loading order...</div>;
@@ -188,7 +206,7 @@ export default function OrderDetailsPage() {
                   )}
                 </td>
                 <td className="p-2 text-center">
-                  <Button size="sm" onClick={() => paySchedule(s)} disabled={s.status === 'paid'}>Pay</Button>
+                  <Button size="sm" onClick={() => openPayModal(s)} disabled={s.status === 'paid'}>Pay</Button>
                 </td>
               </tr>
             ))}
@@ -204,8 +222,8 @@ export default function OrderDetailsPage() {
       <div className="mt-6">
         <h2 className="font-medium mb-2">Approval</h2>
         <div className="flex gap-2">
-          <Button onClick={() => handleApproval('approved')}>Approve</Button>
-          <Button variant="destructive" onClick={() => handleApproval('rejected')}>Reject</Button>
+          <Button onClick={() => openApprovalModal('approved')}>Approve</Button>
+          <Button variant="destructive" onClick={() => openApprovalModal('rejected')}>Reject</Button>
         </div>
         {order.approved_by && (
           <div className="mt-2 text-sm text-muted-foreground">
@@ -215,6 +233,28 @@ export default function OrderDetailsPage() {
           </div>
         )}
       </div>
+
+      {/* Approval modal */}
+      <Modal open={approvalModalOpen} onClose={() => setApprovalModalOpen(false)} title={approvalStatus === 'approved' ? 'Approve order' : 'Reject order'}>
+        <div className="space-y-3">
+          <textarea value={approvalComment} onChange={(e) => setApprovalComment(e.target.value)} placeholder="Optional comment" className="w-full p-2 border rounded" />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setApprovalModalOpen(false)}>Cancel</Button>
+            <Button onClick={confirmApproval}>{approvalStatus === 'approved' ? 'Approve' : 'Reject'}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Payment modal */}
+      <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title={`Pay installment ${paymentSchedule?.installment_number ?? ''}`}>
+        <div className="space-y-3">
+          <input value={paymentAmountInput} onChange={(e) => setPaymentAmountInput(e.target.value)} className="w-full p-2 border rounded" />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPaymentModalOpen(false)}>Cancel</Button>
+            <Button onClick={confirmPay}>Pay</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
