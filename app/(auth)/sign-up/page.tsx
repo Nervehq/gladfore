@@ -1,96 +1,136 @@
- 'use client';
+'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/lib/auth/context';
-import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
-import { Form, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
-import { UserRole } from '@/lib/supabase/types';
-
-type FormValues = {
-  email: string;
-  password: string;
-  fullName: string;
-  role: UserRole;
-  phone?: string;
-};
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/auth/context';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignUpPage() {
   const router = useRouter();
   const { signUp } = useAuth();
   const { toast } = useToast();
-  const methods = useForm<FormValues>({
-    defaultValues: { email: '', password: '', fullName: '', role: 'farmer' },
-  });
 
-  const onSubmit = async (data: FormValues) => {
-    const { error } = await signUp(data.email, data.password, data.fullName, data.role, data.phone);
-    if (error) {
-      toast({ title: 'Sign up failed', description: String(error.message || error) });
-      return;
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'farmer' | 'agent' | 'admin'>('farmer');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirm) {
+      return toast({ title: 'Password mismatch', description: 'Passwords do not match' });
     }
-    toast({ title: 'Account created', description: 'Please check your email to confirm' });
-    router.push('/');
+    setLoading(true);
+    try {
+      // signature can vary — cast to any to match runtime hook shape
+      const res = (await (signUp as any)(email, password, { name, role })) as any;
+      if (res?.error) {
+        toast({ title: 'Sign up failed', description: res.error.message || 'Try again' });
+      } else {
+        toast({ title: 'Account created', description: 'Redirecting…' });
+        // role-aware redirect
+        if (role === 'agent') router.push('/agent/dashboard');
+        else if (role === 'admin') router.push('/admin/dashboard');
+        else router.push('/farmer/dashboard');
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Unexpected error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-md mx-auto py-12">
-      <h1 className="text-2xl font-semibold mb-6">Sign up</h1>
-      <Form {...methods}>
-        <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4">
-          <FormItem>
-            <FormLabel>Full name</FormLabel>
-            <FormControl>
-              <Input {...methods.register('fullName', { required: 'Full name required' })} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+    <div className="min-h-screen flex items-start justify-center bg-slate-50 py-8 px-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-6 sm:p-8">
+        <header className="mb-6">
+          <h1 className="text-2xl font-semibold">Create account</h1>
+          <p className="text-sm text-muted-foreground mt-1">Sign up and get started</p>
+        </header>
 
-          <FormItem>
-            <FormLabel>Email</FormLabel>
-            <FormControl>
-              <Input {...methods.register('email', { required: 'Email required' })} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Full name</label>
+            <Input
+              className="w-full"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Jane Doe"
+              required
+            />
+          </div>
 
-          <FormItem>
-            <FormLabel>Password</FormLabel>
-            <FormControl>
-              <Input type="password" {...methods.register('password', { required: 'Password required' })} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+          <div>
+            <label className="block text-sm font-medium mb-1">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as any)}
+              className="block w-full px-3 py-2 border rounded-md bg-white"
+              aria-label="Role"
+            >
+              <option value="farmer">Farmer</option>
+              <option value="agent">Agent</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
 
-          <FormItem>
-            <FormLabel>Phone (optional)</FormLabel>
-            <FormControl>
-              <Input {...methods.register('phone')} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+          <div>
+            <label className="block text-sm font-medium mb-1">Email</label>
+            <Input
+              className="w-full"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </div>
 
-          <FormItem>
-            <FormLabel>Role</FormLabel>
-            <FormControl>
-              <select
-                className="w-full rounded-md border px-3 py-2"
-                {...methods.register('role')}
-              >
-                <option value="farmer">Farmer</option>
-                <option value="agent">Agent</option>
-                <option value="admin">Admin</option>
-              </select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+          <div>
+            <label className="block text-sm font-medium mb-1">Password</label>
+            <Input
+              className="w-full"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Create a password"
+              required
+              minLength={8}
+            />
+          </div>
 
-          <Button type="submit">Create account</Button>
+          <div>
+            <label className="block text-sm font-medium mb-1">Confirm password</label>
+            <Input
+              className="w-full"
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repeat password"
+              required
+              minLength={8}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <p className="text-muted-foreground">Already have an account?</p>
+            <Link href="/sign-in" className="text-primary hover:underline">Sign in</Link>
+          </div>
+
+          <div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Creating account…' : 'Create account'}
+            </Button>
+          </div>
         </form>
-      </Form>
+      </div>
     </div>
   );
 }
