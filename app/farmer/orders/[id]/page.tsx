@@ -105,6 +105,24 @@ export default function OrderDetailsPage() {
     setPayments((paymentsData3 ?? []) as Payment[]);
   };
 
+  const handleApproval = async (status: 'approved' | 'rejected') => {
+    if (!profile || !order) return toast({ title: 'Cannot update', description: 'Missing context' });
+
+    const comment = window.prompt(`Add an optional comment for ${status}`) || null;
+
+    const { data: updatedOrder, error } = await updateOrder(order.id, {
+      status,
+      approved_by: profile.id,
+      approved_at: new Date().toISOString(),
+      approval_comment: comment,
+    } as any);
+
+    if (error) return toast({ title: 'Error', description: 'Could not update order' });
+
+    if (updatedOrder) setOrder(updatedOrder as Order);
+    toast({ title: `Order ${status}`, description: `Order ${order.id} ${status}` });
+  };
+
   if (!order) return <div className="p-6">Loading order...</div>;
 
   return (
@@ -181,6 +199,21 @@ export default function OrderDetailsPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="font-medium mb-2">Approval</h2>
+        <div className="flex gap-2">
+          <Button onClick={() => handleApproval('approved')}>Approve</Button>
+          <Button variant="destructive" onClick={() => handleApproval('rejected')}>Reject</Button>
+        </div>
+        {order.approved_by && (
+          <div className="mt-2 text-sm text-muted-foreground">
+            <div>Approved by: {order.approved_by}</div>
+            <div>At: {order.approved_at}</div>
+            <div>Comment: {order.approval_comment}</div>
+          </div>
+        )}
       </div>
     </div>
   );
