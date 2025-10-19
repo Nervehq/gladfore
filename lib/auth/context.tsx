@@ -96,13 +96,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: authError };
     }
 
-    const { error: profileError } = await supabase.from('profiles').insert({
+    const profilePayload: import('@/lib/supabase/types').Database['public']['Tables']['profiles']['Insert'] = {
       id: authData.user.id,
       role,
       full_name: fullName,
       phone_number: phone || null,
       national_id: nationalId || null,
-    } as any);
+    };
+
+    // use any-typed supabase call here to avoid Postgrest generic overload friction
+    const sb: any = supabase;
+    const { error: profileError } = await sb.from('profiles').insert([profilePayload]);
 
     return { error: profileError };
   };
