@@ -1,53 +1,41 @@
-'use client';
+'use client'
 
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/context';
+import React, { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth/context'
 
-export function RequireRole({
-  role,
-  children,
-}: {
-  role: string;
-  children: React.ReactNode;
-}) {
-  const { profile, loading } = useAuth();
-  const router = useRouter();
+interface RequireRoleProps {
+  role: 'admin' | 'agent' | 'farmer'
+  children: React.ReactNode
+}
+
+export function RequireRole({ role, children }: RequireRoleProps) {
+  const { profile, loading } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
-    if (loading) return;
+    if (loading) return
 
     if (!profile) {
-      router.replace('/sign-in');
-      return;
+      router.replace('/sign-in')
+      return
     }
 
     if (profile.role !== role) {
-      switch (profile.role) {
-        case 'admin':
-          router.replace('/admin/dashboard');
-          break;
-        case 'farmer':
-          router.replace('/farmer/dashboard');
-          break;
-        case 'agent':
-          router.replace('/agent/dashboard');
-          break;
-        default:
-          router.replace('/');
-      }
+      // Redirect to their correct dashboard
+      if (profile.role === 'admin') router.replace('/admin/dashboard')
+      if (profile.role === 'agent') router.replace('/agent/dashboard')
+      if (profile.role === 'farmer') router.replace('/farmer/dashboard')
     }
-  }, [profile, loading, router, role]);
+  }, [profile, loading, role, router])
 
-  if (loading) {
+  if (loading || !profile || profile.role !== role) {
     return (
-      <div className="flex h-screen items-center justify-center text-gray-500">
-        Loading your access...
+      <div className="flex items-center justify-center h-screen text-gray-600">
+        Checking access...
       </div>
-    );
+    )
   }
 
-  if (!profile || profile.role !== role) return null;
-
-  return <>{children}</>;
+  return <>{children}</>
 }
