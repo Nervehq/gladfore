@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import { useToast } from '@/hooks/use-toast';
@@ -10,45 +10,61 @@ import Link from 'next/link';
 
 export default function SignInPage() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, user, loading, profile } = useAuth();
   const { toast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // ✅ Auto-redirect if already signed in
+  useEffect(() => {
+    if (!loading && user) {
+      // redirect user based on role
+      if (profile?.role === 'farmer') {
+        router.push('/farmer/dashboard');
+      } else if (profile?.role === 'admin') {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/'); // fallback route
+      }
+    }
+  }, [user, loading, profile, router]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = (await signIn(email, password)) as any;
-      if (error) {
-        toast({ title: 'Sign in failed', description: error.message || 'Check credentials' });
-      } else {
-        toast({ title: 'Signed in', description: 'Redirecting…' });
-        router.push('/farmer/dashboard');
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Unexpected error' });
-      console.error(err);
-    } finally {
-      setLoading(false);
+    setSubmitting(true);
+
+    const { error } = await signIn(email, password);
+    if (error) {
+      toast({
+        title: 'Sign in failed',
+        description: error.message || 'Invalid email or password',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Signed in successfully',
+        description: 'Redirecting to your dashboard…',
+      });
+      // Redirect will happen automatically via the useEffect above
     }
+
+    setSubmitting(false);
   };
 
   return (
-    <div className="min-h-screen flex items-start justify-center bg-slate-50 py-8 px-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-6 sm:p-8">
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold">Sign in</h1>
-          <p className="text-sm text-muted-foreground mt-1">Sign in to your account</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 sm:p-8">
+        <header className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
+          <p className="text-sm text-gray-500 mt-1">Sign in to access your account</p>
         </header>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">Email</label>
             <Input
-              className="w-full"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -58,9 +74,8 @@ export default function SignInPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">Password</label>
             <Input
-              className="w-full"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -70,15 +85,21 @@ export default function SignInPage() {
           </div>
 
           <div className="flex items-center justify-between text-sm">
-            <Link href="/reset-password" className="text-primary hover:underline">Forgot password?</Link>
-            <Link href="/sign-up" className="ml-4 text-muted-foreground hover:underline">Create account</Link>
+            <Link href="/reset-password" className="text-blue-600 hover:underline">
+              Forgot password?
+            </Link>
+            <Link href="/sign-up" className="text-gray-500 hover:underline">
+              Create account
+            </Link>
           </div>
 
-          <div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            className="w-full mt-4"
+            disabled={submitting || loading}
+          >
+            {submitting ? 'Signing in…' : 'Sign in'}
+          </Button>
         </form>
       </div>
     </div>
