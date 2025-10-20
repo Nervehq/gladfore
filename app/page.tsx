@@ -17,8 +17,8 @@ export default function Home() {
           </div>
 
           <nav className="hidden sm:flex items-center gap-3">
-            <Link href="/(auth)/sign-in" className="text-sm text-muted-foreground hover:underline">Sign in</Link>
-            <Link href="/(auth)/sign-up">
+            <Link href="/sign-in" className="text-sm text-muted-foreground hover:underline">Sign in</Link>
+            <Link href="/sign-up">
               <Button size="sm">Get started</Button>
             </Link>
           </nav>
