@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-slate-50 text-slate-900">git
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto grid gap-8">
           <div className="bg-white rounded-lg shadow-sm p-6 sm:p-10">
