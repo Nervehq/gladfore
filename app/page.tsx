@@ -6,30 +6,7 @@ import { Button } from '@/components/ui/button';
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">G</div>
-            <div>
-              <h1 className="text-lg font-semibold">Galdfore</h1>
-              <p className="text-xs text-muted-foreground">Galdfore fertilizer • 50:50 financing</p>
-            </div>
-          </div>
-
-          <nav className="hidden sm:flex items-center gap-3">
-            <Link href="/sign-in" className="text-sm text-muted-foreground hover:underline">Sign in</Link>
-            <Link href="/sign-up">
-              <Button size="sm">Get started</Button>
-            </Link>
-          </nav>
-
-          <div className="sm:hidden">
-            <Link href="/(auth)/sign-up">
-              <Button size="sm">Get started</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+    
 
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto grid gap-8">
