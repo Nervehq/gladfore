@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/business-logic/order-calculations';
 import { useToast } from '@/hooks/use-toast';
 
+export const dynamic = 'force-dynamic';
+
 type Order = Database['public']['Tables']['orders']['Row'];
 type Payment = Database['public']['Tables']['payments']['Row'];
 
